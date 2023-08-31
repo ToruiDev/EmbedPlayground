@@ -11,16 +11,18 @@ public class LuaInterpreter : IDisposable
     public bool IsRunning { get; } = false;
     private Lua _state;
     private CancellationToken? _currentToken;
+    public ILuaEnv _env;
     
     public LuaInterpreter()
     {
         _state = new Lua();
         _state.DebugHook += StateOnDebugHook;
-        
+
+        _env = new LuaEnvironment(_state);
+        _env.Export("log", Debug);
         
         var baseScript = File.ReadAllText("./Sandbox.lua");
-        _state["log"] = this.Debug;
-        //_state.RegisterFunction("log", typeof(LuaInterpreter).GetMethod(nameof(Debug)));
+
         var sandbox = _state.DoString(baseScript, "BaseScript");
     }
 
@@ -54,24 +56,24 @@ public class LuaInterpreter : IDisposable
                 #if DUMP_VARS
                 var ex = _state.DoString("print(__code)", "debug_print");
                 var globals = _state.DoString("""
-for k,v in pairs(_G) do
-    print("Global key", k, "value", v)
-end
-""", "globals");
-                
-                var locals = _state.DoString("""
-local i = 0
-repeat
-    local k, v = debug.getlocal(1, i)
-    if k then
-        print(k, v)
-        i = i + 1
-    end
-until nil == k
-""", "locals");
+                for k,v in pairs(_G) do
+                    print("Global key", k, "value", v)
+                end
+                """, "globals");
+                                
+                                var locals = _state.DoString("""
+                local i = 0
+                repeat
+                    local k, v = debug.getlocal(1, i)
+                    if k then
+                        print(k, v)
+                        i = i + 1
+                    end
+                until nil == k
+                """, "locals");
                 #endif
                 var quota = false;
-                var env = "log = log";
+                var env = _env.GetExtraEnv();
                 var tmp = _state.DoString($"local ok, result = pcall(sandbox.run, __code, {{quota={quota}, env = {{ {env} }}}})", Name);
                 var (ok, result) = (_state["ok"], _state["result"]);
                 return (ok, result);

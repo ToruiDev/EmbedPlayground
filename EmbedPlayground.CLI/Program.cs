@@ -8,12 +8,24 @@ using LuaFunction = NLua.LuaFunction;
 var interpreter = new LuaInterpreter()
 {
 	Source = """
+		read = input('eine zahl')
+		log(read)
 		for i=0,10,1
 		do
 			log('hello world ')
 		end 
 	"""
 };
+
+interpreter._env.Export("input", (string q) =>
+{
+	Console.WriteLine(q);
+	Console.Write(">");
+	var ret =  Console.ReadLine()?.Trim();
+	Console.Write("\n");
+	return ret;
+});
+
 var res = await interpreter.ExecuteAsync();
 Console.WriteLine(res);
 return;
